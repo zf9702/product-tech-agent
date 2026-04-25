@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }} - 预览{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5><i class="bi bi-eye"></i> {{ doc.title }}</h5>
+    <div>
+        <a href="/download/{{ doc.id }}" class="btn btn-sm btn-success">
+            <i class="bi bi-download"></i> 下载原文件
+        </a>
+        <a href="/document/{{ doc.id }}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-info-circle"></i> 详情
+        </a>
+        <a href="javascript:history.back()" class="btn btn-sm btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        {% if file_type == '.pdf' %}
+        <!-- PDF: 浏览器内置预览 -->
+        <iframe src="/preview-file/{{ doc.id }}" style="width:100%; height:85vh; border:none;"></iframe>
+
+        {% elif file_type in ['.png', '.jpg', '.jpeg'] %}
+        <!-- 图片: 直接显示 -->
+        <div class="text-center p-3">
+            <img src="/preview-file/{{ doc.id }}" class="img-fluid" style="max-height:85vh;">
+        </div>
+
+        {% elif file_type == '.docx' %}
+        <!-- Word .docx: 先尝试 WPS/Word 转 PDF，失败则用 mammoth.js -->
+        <div id="docx_loading" class="text-center p-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">正在加载文档...</p>
+        </div>
+        <iframe id="docx_pdf_frame" style="width:100%; height:85vh; border:none; display:none;"></iframe>
+        <div id="docx_content" class="p-4" style="display:none; max-height:85vh; overflow-y:auto; font-family: SimSun, serif; line-height: 1.8;"></div>
+        <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+        <script>
+        // 先尝试 WPS/Word 转 PDF
+        fetch('/preview-file/{{ doc.id }}')
+            .then(function(r) {
+                if (r.ok && r.headers.get('content-type').indexOf('pdf') !== -1) {
+                    return r.blob();
+                }
+                throw new Error('fallback');
+            })
+            .then(function(blob) {
+                var url = URL.createObjectURL(blob);
+                document.getElementById('docx_pdf_frame').src = url;
+                document.getElementById('docx_pdf_frame').style.display = '';
+                document.getElementById('docx_loading').style.display = 'none';
+            })
+            .catch(function() {
+                // 回退到 mammoth.js
+                fetch('/preview-file/{{ doc.id }}')
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('无法加载文件');
+                        return r.arrayBuffer();
+                    })
+                    .then(function(buffer) {
+                        return mammoth.convertToHtml({arrayBuffer: buffer});
+                    })
+                    .then(function(result) {
+                        document.getElementById('docx_content').innerHTML = result.value;
+                        document.getElementById('docx_loading').style.display = 'none';
+                        document.getElementById('docx_content').style.display = '';
+                    })
+                    .catch(function(err) {
+                        document.getElementById('docx_loading').innerHTML =
+                            '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> ' +
+                            '文档预览需要安装 WPS 或 Microsoft Word<br>' +
+                            '当前状态：未检测到可用的 Office 软件<br><br>' +
+                            '<a href="/download/{{ doc.id }}" class="btn btn-success"><i class="bi bi-download"></i> 下载原文件</a></div>';
+                    });
+            });
+        </script>
+
+        {% elif file_type == '.txt' or file_type == '.md' %}
+        <!-- 文本: 直接显示 -->
+        <pre id="text_content" class="p-4" style="max-height:85vh; overflow-y:auto; white-space: pre-wrap; font-family: Consolas, monospace;"></pre>
+        <script>
+        fetch('/preview-file/{{ doc.id }}')
+            .then(function(r) { return r.text(); })
+            .then(function(text) { document.getElementById('text_content').textContent = text; });
+        </script>
+
+        {% elif file_type in ['.xlsx', '.xls'] %}
+        <!-- Excel: 提示下载 -->
+        <div class="text-center p-5">
+            <i class="bi bi-file-earmark-excel" style="font-size: 4rem; color: #217346;"></i>
+            <h5 class="mt-3">Excel 文件</h5>
+            <p class="text-muted">Excel 文件暂不支持在线预览，请下载后查看</p>
+            <a href="/download/{{ doc.id }}" class="btn btn-success">
+                <i class="bi bi-download"></i> 下载
+            </a>
+        </div>
+
+        {% elif file_type in ['.pptx', '.ppt'] %}
+        <!-- PPT: 提示下载 -->
+        <div class="text-center p-5">
+            <i class="bi bi-file-earmark-ppt" style="font-size: 4rem; color: #d04423;"></i>
+            <h5 class="mt-3">PPT 文件</h5>
+            <p class="text-muted">PPT 文件暂不支持在线预览，请下载后查看</p>
+            <a href="/download/{{ doc.id }}" class="btn btn-success">
+                <i class="bi bi-download"></i> 下载
+            </a>
+        </div>
+
+        {% else %}
+        <!-- 其他: 提示下载 -->
+        <div class="text-center p-5">
+            <i class="bi bi-file-earmark" style="font-size: 4rem; color: #6c757d;"></i>
+            <h5 class="mt-3">{{ doc.filename }}</h5>
+            <p class="text-muted">该文件类型 ({{ file_type }}) 暂不支持在线预览</p>
+            <a href="/download/{{ doc.id }}" class="btn btn-success">
+                <i class="bi bi-download"></i> 下载
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

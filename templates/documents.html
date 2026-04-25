@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}文档列表 - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-file-earmark-text"></i> 文档列表</h4>
+
+<!-- 搜索栏 -->
+<div class="search-bar">
+    <form method="get" action="/documents" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label small">关键词搜索</label>
+            <input type="text" name="q" class="form-control" placeholder="标题、编号..." value="{{ q }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">产品型号</label>
+            <input type="text" name="product_model" class="form-control" placeholder="如 BY-6B" value="{{ product_model }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">文档分类</label>
+            <select name="category_id" class="form-select">
+                <option value="">全部分类</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if selected_category == cat.id %}selected{% endif %}>
+                    {{ cat.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-search"></i> 搜索
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="text-muted">共 {{ total }} 条记录</span>
+    {% if user.role in ['admin', 'editor'] %}
+    <div>
+        <button type="button" class="btn btn-sm btn-danger" id="btn_batch_delete" onclick="batchDelete()" disabled>
+            <i class="bi bi-trash"></i> 批量删除
+        </button>
+        <span id="selected_count" class="text-muted small ms-2"></span>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    {% if user.role in ['admin', 'editor'] %}
+                    <th style="width:30px;">
+                        <input type="checkbox" id="check_all" title="全选/取消">
+                    </th>
+                    {% endif %}
+                    <th>标题</th>
+                    <th>编号</th>
+                    <th>型号</th>
+                    <th>分类</th>
+                    <th>版本</th>
+                    <th>大小</th>
+                    <th>更新时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    {% if user.role in ['admin', 'editor'] %}
+                    <td>
+                        <input type="checkbox" class="doc_check" value="{{ doc.id }}" data-title="{{ doc.title }}">
+                    </td>
+                    {% endif %}
+                    <td>
+                        <a href="/document/{{ doc.id }}">{{ doc.title }}</a>
+                    </td>
+                    <td><code>{{ doc.doc_number or '-' }}</code></td>
+                    <td>{{ doc.product_model or '-' }}</td>
+                    <td>{{ doc.category.name if doc.category else '-' }}</td>
+                    <td>{{ doc.version }}</td>
+                    <td>{{ "%.1f"|format(doc.file_size / 1024) }} KB</td>
+                    <td>{{ doc.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <a href="/download/{{ doc.id }}" class="btn btn-sm btn-outline-success" title="下载">
+                            <i class="bi bi-download"></i>
+                        </a>
+                        <a href="/preview/{{ doc.id }}" class="btn btn-sm btn-outline-info" title="预览">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="/document/{{ doc.id }}" class="btn btn-sm btn-outline-primary" title="详情">
+                            <i class="bi bi-info-circle"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{% if user.role in ['admin', 'editor'] %}9{% else %}8{% endif %}" class="text-center text-muted py-4">没有找到相关文档</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 分页 -->
+{% if total_pages > 1 %}
+<nav class="mt-3">
+    <ul class="pagination justify-content-center">
+        {% for p in range(1, total_pages + 1) %}
+        <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="?q={{ q }}&product_model={{ product_model }}&category_id={{ selected_category or '' }}&page={{ p }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+
+<script>
+var checkAll = document.getElementById('check_all');
+var checks = document.querySelectorAll('.doc_check');
+var btnDelete = document.getElementById('btn_batch_delete');
+var spanCount = document.getElementById('selected_count');
+
+if (checkAll) {
+    checkAll.addEventListener('change', function() {
+        checks.forEach(function(cb) { cb.checked = checkAll.checked; });
+        updateCount();
+    });
+}
+
+checks.forEach(function(cb) {
+    cb.addEventListener('change', updateCount);
+});
+
+function updateCount() {
+    var n = document.querySelectorAll('.doc_check:checked').length;
+    if (btnDelete) btnDelete.disabled = n === 0;
+    if (spanCount) spanCount.textContent = n > 0 ? '已选 ' + n + ' 个' : '';
+}
+
+function batchDelete() {
+    var checked = document.querySelectorAll('.doc_check:checked');
+    if (checked.length === 0) return;
+
+    var names = [];
+    var ids = [];
+    checked.forEach(function(cb) {
+        ids.push(cb.value);
+        names.push(cb.getAttribute('data-title'));
+    });
+
+    var msg = '确定要删除以下 ' + ids.length + ' 个文档吗？\n\n';
+    if (names.length <= 10) {
+        msg += names.join('\n');
+    } else {
+        msg += names.slice(0, 10).join('\n') + '\n... 等共 ' + names.length + ' 个';
+    }
+    msg += '\n\n此操作不可恢复！';
+
+    if (!confirm(msg)) return;
+
+    // 逐个删除
+    btnDelete.disabled = true;
+    btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 删除中...';
+
+    var done = 0;
+    var fail = 0;
+
+    function deleteNext(i) {
+        if (i >= ids.length) {
+            // 全部完成，刷新页面
+            if (fail === 0) {
+                window.location.reload();
+            } else {
+                alert('删除完成，成功 ' + (ids.length - fail) + ' 个，失败 ' + fail + ' 个');
+                window.location.reload();
+            }
+            return;
+        }
+        fetch('/document/' + ids[i] + '/delete', {method: 'POST', redirect: 'manual'})
+            .then(function(r) {
+                done++;
+                if (r.status !== 302 && r.status !== 200) fail++;
+                btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' + done + '/' + ids.length;
+                deleteNext(i + 1);
+            })
+            .catch(function() {
+                done++;
+                fail++;
+                deleteNext(i + 1);
+            });
+    }
+    deleteNext(0);
+}
+</script>
+{% endblock %}

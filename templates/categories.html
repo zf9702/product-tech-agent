@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}分类管理 - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-tags"></i> 分类管理</h4>
+
+<!-- 添加分类 -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">添加分类</div>
+    <div class="card-body">
+        <form method="post" action="/categories/add">
+            <div class="row">
+                <div class="col-md-4">
+                    <input type="text" name="name" class="form-control" placeholder="分类名称" required>
+                </div>
+                <div class="col-md-5">
+                    <input type="text" name="description" class="form-control" placeholder="描述说明">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle"></i> 添加分类
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 分类列表 -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>分类名称</th>
+                    <th>描述</th>
+                    <th>文档数量</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cat in categories %}
+                <tr>
+                    <td>{{ cat.id }}</td>
+                    <td><span class="badge bg-info">{{ cat.name }}</span></td>
+                    <td>{{ cat.description or '-' }}</td>
+                    <td>{{ cat.documents | length }}</td>
+                    <td>
+                        <form method="post" action="/categories/{{ cat.id }}/delete" class="d-inline"
+                              onsubmit="return confirm('删除分类不会删除其中的文档，确定继续？')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">暂无分类</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-3">
+    <p class="text-muted small">
+        <i class="bi bi-info-circle"></i>
+        建议按产品线建立分类，例如：BY-6B整流装置、IMP-200BY输出接触器、MII-100M-2电动机构 等
+    </p>
+</div>
+{% endblock %}

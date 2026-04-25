@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}产品参数卡片 - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-clipboard-data"></i> 产品参数卡片</h4>
+
+<!-- 筛选 -->
+<div class="search-bar">
+    <form method="get" action="/specs" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small">产品型号</label>
+            <input type="text" name="product_model" class="form-control" placeholder="如 BY-6B" value="{{ product_model }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">参数类别</label>
+            <select name="category" class="form-select">
+                <option value="">全部</option>
+                {% for cat in categories_list %}
+                <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">关键词</label>
+            <input type="text" name="q" class="form-control" placeholder="参数名称..." value="{{ q }}">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> 搜索</button>
+        </div>
+    </form>
+</div>
+
+<!-- 添加参数 -->
+{% if user.role in ['admin', 'editor'] %}
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white fw-bold" data-bs-toggle="collapse" data-bs-target="#addForm" style="cursor:pointer;">
+        <i class="bi bi-plus-circle"></i> 添加参数 <i class="bi bi-chevron-down float-end"></i>
+    </div>
+    <div class="collapse" id="addForm">
+        <div class="card-body">
+            <form method="post" action="/specs/add">
+                <div class="row">
+                    <div class="col-md-2">
+                        <label class="form-label small">产品型号 *</label>
+                        <input type="text" name="product_model" class="form-control form-control-sm" required placeholder="BY-6B">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">产品名称</label>
+                        <input type="text" name="product_name" class="form-control form-control-sm" placeholder="整流装置">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">参数类别 *</label>
+                        <select name="spec_category" class="form-select form-select-sm" required>
+                            <option value="电气参数">电气参数</option>
+                            <option value="机械参数">机械参数</option>
+                            <option value="环境参数">环境参数</option>
+                            <option value="性能参数">性能参数</option>
+                            <option value="安全参数">安全参数</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">参数名称 *</label>
+                        <input type="text" name="spec_name" class="form-control form-control-sm" required placeholder="输出电压">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small">参数值</label>
+                        <input type="text" name="spec_value" class="form-control form-control-sm" placeholder="27">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small">单位</label>
+                        <input type="text" name="spec_unit" class="form-control form-control-sm" placeholder="V">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">依据标准</label>
+                        <input type="text" name="standard_ref" class="form-control form-control-sm" placeholder="GJB-xxx">
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-3">
+                        <label class="form-label small">标准要求值</label>
+                        <input type="text" name="standard_value" class="form-control form-control-sm" placeholder="27±1V">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small">备注</label>
+                        <input type="text" name="remark" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">&nbsp;</label>
+                        <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-plus"></i> 添加</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<p class="text-muted">共 {{ total }} 条参数记录</p>
+
+<!-- 参数列表 -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>产品型号</th>
+                    <th>类别</th>
+                    <th>参数名称</th>
+                    <th>参数值</th>
+                    <th>单位</th>
+                    <th>标准要求</th>
+                    <th>依据标准</th>
+                    {% if user.role in ['admin', 'editor'] %}
+                    <th>操作</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for spec in specs %}
+                <tr>
+                    <td><b>{{ spec.product_model }}</b></td>
+                    <td><span class="badge bg-info">{{ spec.spec_category }}</span></td>
+                    <td>{{ spec.spec_name }}</td>
+                    <td><code>{{ spec.spec_value }}</code></td>
+                    <td>{{ spec.spec_unit }}</td>
+                    <td>{{ spec.standard_value or '-' }}</td>
+                    <td><small>{{ spec.standard_ref or '-' }}</small></td>
+                    {% if user.role in ['admin', 'editor'] %}
+                    <td>
+                        <form method="post" action="/specs/{{ spec.id }}/delete" class="d-inline"
+                              onsubmit="return confirm('确定删除？')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">暂无参数记录，请添加</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 批量导入 -->
+{% if user.role in ['admin', 'editor'] %}
+<div class="card shadow-sm mt-3">
+    <div class="card-header bg-white fw-bold" data-bs-toggle="collapse" data-bs-target="#importForm" style="cursor:pointer;">
+        <i class="bi bi-upload"></i> 批量导入（从Excel） <i class="bi bi-chevron-down float-end"></i>
+    </div>
+    <div class="collapse" id="importForm">
+        <div class="card-body">
+            <p class="text-muted small">Excel 格式要求：第一行为表头，列顺序为：产品型号, 产品名称, 参数类别, 参数名称, 参数值, 单位, 依据标准, 标准要求值, 备注</p>
+            <form method="post" action="/specs/import" enctype="multipart/form-data">
+                <div class="input-group">
+                    <input type="file" name="file" class="form-control form-control-sm" accept=".xlsx,.xls">
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-upload"></i> 导入</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

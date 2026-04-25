@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}AI 设置 - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-gear"></i> AI 模型设置</h4>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold">AI 模型配置</div>
+            <div class="card-body">
+                {% if saved %}
+                <div class="alert alert-success"><i class="bi bi-check-circle"></i> 配置已保存</div>
+                {% endif %}
+
+                <form method="post" action="/ai-settings">
+                    <div class="mb-3">
+                        <label class="form-label">启用 AI 功能</label>
+                        <select name="enabled" class="form-select">
+                            <option value="true" {% if config.enabled %}selected{% endif %}>启用</option>
+                            <option value="false" {% if not config.enabled %}selected{% endif %}>禁用</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">模型提供商</label>
+                        <select name="provider" class="form-select" onchange="fillPreset(this.value)">
+                            <option value="">自定义</option>
+                            <option value="deepseek" {% if config.provider=='deepseek' %}selected{% endif %}>DeepSeek</option>
+                            <option value="openai" {% if config.provider=='openai' %}selected{% endif %}>OpenAI</option>
+                            <option value="qwen" {% if config.provider=='qwen' %}selected{% endif %}>通义千问</option>
+                            <option value="mimo" {% if config.provider=='mimo' %}selected{% endif %}>MiMo</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">API 地址</label>
+                        <input type="text" name="api_base" class="form-control"
+                               value="{{ config.api_base }}" placeholder="https://api.deepseek.com"
+                               id="api_base">
+                        <div class="form-text">
+                            DeepSeek: https://api.deepseek.com<br>
+                            OpenAI: https://api.openai.com<br>
+                            通义千问: https://dashscope.aliyuncs.com/compatible-mode<br>
+                            MiMo: 填写你的 API 地址
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">API 密钥</label>
+                        <input type="password" name="api_key" class="form-control"
+                               value="{{ config.api_key }}" placeholder="sk-...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">模型名称</label>
+                        <input type="text" name="model" class="form-control"
+                               value="{{ config.model }}" placeholder="deepseek-chat"
+                               id="model_name">
+                        <div class="form-text">
+                            DeepSeek: deepseek-chat<br>
+                            OpenAI: gpt-4o<br>
+                            通义千问: qwen-plus<br>
+                            MiMo: mimo-v2.5
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">最大输出 Token</label>
+                                <input type="number" name="max_tokens" class="form-control"
+                                       value="{{ config.max_tokens or 4096 }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">温度 (0-1)</label>
+                                <input type="number" name="temperature" class="form-control"
+                                       value="{{ config.temperature or 0.3 }}" step="0.1" min="0" max="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> 保存配置
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="testConnection()">
+                        <i class="bi bi-lightning"></i> 测试连接
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold">功能说明</div>
+            <div class="card-body">
+                <h6><i class="bi bi-chat-dots"></i> 知识问答</h6>
+                <p class="small text-muted">基于上传的技术文档进行智能问答，支持查询产品参数、测试结果等。</p>
+
+                <h6><i class="bi bi-check2-square"></i> 符合性检查</h6>
+                <p class="small text-muted">将投标文件与技术标准逐条比对，自动输出符合性报告。</p>
+
+                <hr>
+                <h6>推荐配置</h6>
+                <p class="small text-muted">
+                    <b>性价比最高：</b>DeepSeek (deepseek-chat)<br>
+                    <b>效果最好：</b>OpenAI (gpt-4o)<br>
+                    <b>离线可用：</b>本地部署 Ollama + Qwen2.5
+                </p>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3" id="test_result" style="display:none;">
+            <div class="card-header bg-white fw-bold">测试结果</div>
+            <div class="card-body" id="test_body"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+var presets = {
+    'deepseek': {api_base: 'https://api.deepseek.com', model: 'deepseek-chat'},
+    'openai': {api_base: 'https://api.openai.com', model: 'gpt-4o'},
+    'qwen': {api_base: 'https://dashscope.aliyuncs.com/compatible-mode', model: 'qwen-plus'},
+    'mimo': {api_base: '', model: 'mimo-v2.5'},
+};
+
+function fillPreset(provider) {
+    if (presets[provider]) {
+        var p = presets[provider];
+        if (p.api_base) document.getElementById('api_base').value = p.api_base;
+        if (p.model) document.getElementById('model_name').value = p.model;
+    }
+}
+
+function testConnection() {
+    document.getElementById('test_result').style.display = '';
+    document.getElementById('test_body').innerHTML = '<span class="spinner-border spinner-border-sm"></span> 测试中...';
+
+    fetch('/api/test-ai', {method: 'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                document.getElementById('test_body').innerHTML =
+                    '<div class="text-success"><i class="bi bi-check-circle"></i> 连接成功！</div>' +
+                    '<small class="text-muted">' + data.response + '</small>';
+            } else {
+                document.getElementById('test_body').innerHTML =
+                    '<div class="text-danger"><i class="bi bi-x-circle"></i> ' + data.error + '</div>';
+            }
+        })
+        .catch(function(e) {
+            document.getElementById('test_body').innerHTML =
+                '<div class="text-danger">请求失败: ' + e.message + '</div>';
+        });
+}
+</script>
+{% endblock %}

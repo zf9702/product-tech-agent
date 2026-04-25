@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}编号规则 - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-hash"></i> 文件编号规则管理</h4>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    <strong>编号格式说明：</strong>
+    使用占位符组合编号模板：{product}=产品型号, {code}=类型码, {year}=年份, {seq}=流水号, {version}=版本号<br>
+    示例：<code>{product}-{code}-{year}-{seq}</code> 生成 <code>BY-6B-TD-2026-001</code>
+</div>
+
+<!-- 添加规则 -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">添加编号规则</div>
+    <div class="card-body">
+        <form method="post" action="/numbering-rules/add">
+            <div class="row">
+                <div class="col-md-2">
+                    <label class="form-label small">类型码 <span class="text-danger">*</span></label>
+                    <input type="text" name="type_code" class="form-control" placeholder="如 TD" required
+                           maxlength="20" style="text-transform:uppercase;">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">类型名称 <span class="text-danger">*</span></label>
+                    <input type="text" name="type_name" class="form-control" placeholder="如 技术条件" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">编号模板</label>
+                    <input type="text" name="template" class="form-control"
+                           value="{product}-{code}-{year}-{seq}" placeholder="{product}-{code}-{year}-{seq}">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small">流水号位数</label>
+                    <input type="number" name="seq_digits" class="form-control" value="3" min="1" max="6">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small">排序</label>
+                    <input type="number" name="sort_order" class="form-control" value="50">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle"></i> 添加
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 现有规则列表 -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        现有编号规则 ({{ rules | length }} 条)
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>类型码</th>
+                    <th>类型名称</th>
+                    <th>编号模板</th>
+                    <th>流水号位数</th>
+                    <th>编号示例</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in rules %}
+                <tr>
+                    <td><code>{{ rule.type_code }}</code></td>
+                    <td>{{ rule.type_name }}</td>
+                    <td><code>{{ rule.template }}</code></td>
+                    <td>{{ rule.seq_digits }}</td>
+                    <td class="text-muted">
+                        {{ rule.template.replace('{product}', 'BY-6B').replace('{code}', rule.type_code).replace('{year}', '2026').replace('{seq', '001'[:rule.seq_digits]|string) }}
+                    </td>
+                    <td>
+                        <form method="post" action="/numbering-rules/{{ rule.id }}/delete" class="d-inline"
+                              onsubmit="return confirm('确定删除规则 {{ rule.type_code }} - {{ rule.type_name }}？')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">暂无编号规则</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-3">
+    <p class="text-muted small">
+        <i class="bi bi-lightbulb"></i>
+        常用航空产品文件类型码参考：
+        TD(技术条件), DW(图样), JS(技术说明书), JY(检验规程), GY(工艺规程),
+        BZ(标准化审查报告), YJ(试验报告), FA(方案/大纲), BG(报告), QT(其他)
+    </p>
+</div>
+{% endblock %}

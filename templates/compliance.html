@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}符合性检查 - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-check2-square"></i> 符合性检查</h4>
+
+<div class="row">
+    <!-- 左侧：上传区 -->
+    <div class="col-md-5">
+        <!-- 技术标准 -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white fw-bold">
+                <i class="bi bi-journal-text"></i> 技术标准 / 招标要求
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">选择已上传的标准文档，或粘贴要求内容</p>
+                <select id="standard_doc" class="form-select form-select-sm mb-2">
+                    <option value="">-- 从已有文档选择 --</option>
+                    {% for doc in documents %}
+                    <option value="{{ doc.id }}">{{ doc.title }}</option>
+                    {% endfor %}
+                </select>
+                <textarea id="standard_text" class="form-control" rows="8"
+                          placeholder="或直接粘贴技术标准/招标要求内容..."></textarea>
+            </div>
+        </div>
+
+        <!-- 投标文件 -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white fw-bold">
+                <i class="bi bi-file-earmark-text"></i> 投标文件
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">选择已上传的投标文档，或粘贴投标内容</p>
+                <select id="bid_doc" class="form-select form-select-sm mb-2">
+                    <option value="">-- 从已有文档选择 --</option>
+                    {% for doc in documents %}
+                    <option value="{{ doc.id }}">{{ doc.title }}</option>
+                    {% endfor %}
+                </select>
+                <textarea id="bid_text" class="form-control" rows="8"
+                          placeholder="或直接粘贴投标文件内容..."></textarea>
+            </div>
+        </div>
+
+        <button class="btn btn-primary w-100" onclick="startCheck()" id="btn_check">
+            <i class="bi bi-check2-square"></i> 开始符合性检查
+        </button>
+    </div>
+
+    <!-- 右侧：检查结果 -->
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold">
+                <i class="bi bi-clipboard-check"></i> 检查结果
+            </div>
+            <div class="card-body" id="result_area" style="min-height:50vh; max-height:80vh; overflow-y:auto;">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-shield-check" style="font-size:3rem;"></i>
+                    <p class="mt-2">选择标准文档和投标文件，点击"开始检查"<br>AI 将逐条比对输出符合性报告</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function startCheck() {
+    var standardDoc = document.getElementById('standard_doc').value;
+    var standardText = document.getElementById('standard_text').value.trim();
+    var bidDoc = document.getElementById('bid_doc').value;
+    var bidText = document.getElementById('bid_text').value.trim();
+
+    if (!standardDoc && !standardText) { alert('请选择或粘贴技术标准/招标要求'); return; }
+    if (!bidDoc && !bidText) { alert('请选择或粘贴投标文件内容'); return; }
+
+    var btn = document.getElementById('btn_check');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> AI 分析中，请稍候...';
+
+    document.getElementById('result_area').innerHTML =
+        '<div class="text-center py-5"><div class="spinner-border text-primary"></div>' +
+        '<p class="mt-2">AI 正在逐条比对，这可能需要 1-3 分钟...</p></div>';
+
+    var fd = new URLSearchParams();
+    fd.append('standard_doc_id', standardDoc);
+    fd.append('standard_text', standardText);
+    fd.append('bid_doc_id', bidDoc);
+    fd.append('bid_text', bidText);
+
+    fetch('/api/compliance-check', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: fd.toString()
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check2-square"></i> 开始符合性检查';
+        if (data.error) {
+            document.getElementById('result_area').innerHTML =
+                '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ' + data.error + '</div>';
+        } else {
+            document.getElementById('result_area').innerHTML = formatComplianceResult(data.result);
+        }
+    })
+    .catch(function(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check2-square"></i> 开始符合性检查';
+        document.getElementById('result_area').innerHTML =
+            '<div class="alert alert-danger">请求失败: ' + e.message + '</div>';
+    });
+}
+
+function formatComplianceResult(text) {
+    // 将文本转成格式化的 HTML
+    var html = '<div style="font-family:Consolas,monospace; font-size:0.9em; line-height:1.8; white-space:pre-wrap;">';
+    html += escapeHtml(text);
+    html += '</div>';
+
+    // 高亮 符合/不符合
+    html = html.replace(/符合/g, '<span style="color:green;font-weight:bold;">符合</span>');
+    html = html.replace(/不符合/g, '<span style="color:red;font-weight:bold;">不符合</span>');
+    html = html.replace(/部分符合/g, '<span style="color:orange;font-weight:bold;">部分符合</span>');
+
+    // 高亮总结行
+    html = html.replace(/通过/g, '<span style="color:green;font-weight:bold;">通过</span>');
+    html = html.replace(/不通过/g, '<span style="color:red;font-weight:bold;">不通过</span>');
+
+    return html;
+}
+
+function escapeHtml(text) {
+    var d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+</script>
+{% endblock %}

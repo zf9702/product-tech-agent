@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}知识问答 - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-chat-dots"></i> 知识问答</h4>
+
+<div class="row">
+    <!-- 左侧：文档选择 -->
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold small">选择参考文档</div>
+            <div class="card-body p-2" style="max-height:70vh; overflow-y:auto;">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="doc_scope" id="scope_all" value="all" checked>
+                    <label class="form-check-label small" for="scope_all">全部文档</label>
+                </div>
+                <hr class="my-1">
+                {% for doc in documents %}
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio" name="doc_scope" value="{{ doc.id }}" id="doc_{{ doc.id }}">
+                    <label class="form-check-label small" for="doc_{{ doc.id }}" title="{{ doc.title }}">
+                        {{ doc.title[:20] }}{% if doc.title|length > 20 %}...{% endif %}
+                    </label>
+                </div>
+                {% else %}
+                <p class="text-muted small">暂无已索引文档</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：聊天区 -->
+    <div class="col-md-9">
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <!-- 聊天消息区 -->
+                <div id="chat_area" style="height:55vh; overflow-y:auto; padding:15px;">
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-robot" style="font-size:3rem;"></i>
+                        <p class="mt-2">你好！我是技术资料 AI 助手。<br>你可以问我关于产品技术参数、测试结果等问题。</p>
+                    </div>
+                </div>
+                <!-- 输入区 -->
+                <div class="border-top p-3">
+                    <div class="input-group">
+                        <input type="text" id="chat_input" class="form-control"
+                               placeholder="输入问题，如：BY-6B 的输出电压范围是多少？"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();sendQuestion();}">
+                        <button class="btn btn-primary" onclick="sendQuestion()">
+                            <i class="bi bi-send"></i> 发送
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        提示：选择左侧文档可限定搜索范围，不选则搜索全部文档
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var chatArea = document.getElementById('chat_area');
+var chatInput = document.getElementById('chat_input');
+
+function addMessage(role, content) {
+    var div = document.createElement('div');
+    div.className = 'mb-3';
+    if (role === 'user') {
+        div.innerHTML = '<div class="d-flex justify-content-end">' +
+            '<div class="bg-primary text-white rounded p-2 px-3" style="max-width:70%;">' +
+            '<small><b>你</b></small><br>' + escapeHtml(content) + '</div></div>';
+    } else {
+        div.innerHTML = '<div class="d-flex justify-content-start">' +
+            '<div class="bg-light rounded p-2 px-3" style="max-width:85%;">' +
+            '<small><b>AI 助手</b></small><br>' +
+            '<div class="ai_response">' + formatResponse(content) + '</div></div></div>';
+    }
+    chatArea.appendChild(div);
+    chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function addLoading() {
+    var div = document.createElement('div');
+    div.id = 'loading_msg';
+    div.className = 'mb-3';
+    div.innerHTML = '<div class="d-flex justify-content-start">' +
+        '<div class="bg-light rounded p-2 px-3">' +
+        '<span class="spinner-border spinner-border-sm"></span> AI 正在思考...</div></div>';
+    chatArea.appendChild(div);
+    chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function removeLoading() {
+    var el = document.getElementById('loading_msg');
+    if (el) el.remove();
+}
+
+function escapeHtml(text) {
+    var d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+
+function formatResponse(text) {
+    // 简单 markdown 转换
+    text = escapeHtml(text);
+    // 粗体
+    text = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    // 代码块
+    text = text.replace(/`(.*?)`/g, '<code>$1</code>');
+    // 换行
+    text = text.replace(/\n/g, '<br>');
+    // 表格
+    if (text.includes('|')) {
+        text = text.replace(/\|([^|]+)\|/g, function(match) {
+            return '<span class="badge bg-secondary">' + match.replace(/\|/g, '') + '</span>';
+        });
+    }
+    return text;
+}
+
+function sendQuestion() {
+    var q = chatInput.value.trim();
+    if (!q) return;
+    chatInput.value = '';
+
+    addMessage('user', q);
+    addLoading();
+
+    // 获取选中的文档范围
+    var scope = document.querySelector('input[name="doc_scope"]:checked').value;
+
+    fetch('/api/ask', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'question=' + encodeURIComponent(q) + '&doc_id=' + encodeURIComponent(scope)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        removeLoading();
+        if (data.error) {
+            addMessage('assistant', '[错误] ' + data.error);
+        } else {
+            addMessage('assistant', data.answer);
+        }
+    })
+    .catch(function(e) {
+        removeLoading();
+        addMessage('assistant', '[请求失败] ' + e.message);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }} - 产品技术资料管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-file-earmark-text"></i> {{ doc.title }}</h4>
+    <div>
+        <a href="/download/{{ doc.id }}" class="btn btn-success">
+            <i class="bi bi-download"></i> 下载
+        </a>
+        <a href="/preview/{{ doc.id }}" class="btn btn-info">
+            <i class="bi bi-eye"></i> 预览
+        </a>
+        {% if user.role in ['admin', 'editor'] %}
+        <form method="post" action="/document/{{ doc.id }}/delete" class="d-inline"
+              onsubmit="return confirm('确定要删除这个文档吗？此操作不可恢复。')">
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> 删除
+            </button>
+        </form>
+        {% endif %}
+        <a href="/documents" class="btn btn-secondary ms-2">返回列表</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">文档信息</div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <td class="text-muted" style="width:120px;">文件名</td>
+                        <td>{{ doc.filename }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">文件编号</td>
+                        <td><code>{{ doc.doc_number or '-' }}</code></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">产品型号</td>
+                        <td>{{ doc.product_model or '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">版本</td>
+                        <td>{{ doc.version }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">分类</td>
+                        <td>{{ doc.category.name if doc.category else '未分类' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">访问级别</td>
+                        <td>
+                            {% if doc.access_level == 'public' %}
+                            <span class="badge bg-success">公开</span>
+                            {% elif doc.access_level == 'internal' %}
+                            <span class="badge bg-warning">内部</span>
+                            {% else %}
+                            <span class="badge bg-danger">机密</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">文件大小</td>
+                        <td>{{ "%.1f"|format(doc.file_size / 1024) }} KB</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">上传者</td>
+                        <td>{{ doc.uploader.display_name if doc.uploader else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">上传时间</td>
+                        <td>{{ doc.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">更新时间</td>
+                        <td>{{ doc.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% if doc.description %}
+                    <tr>
+                        <td class="text-muted">描述</td>
+                        <td>{{ doc.description }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">访问记录 (最近50条)</div>
+            <div class="card-body p-0" style="max-height:400px;overflow-y:auto;">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>操作</th>
+                            <th>用户</th>
+                            <th>时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                {% if log.action == 'upload' %}
+                                <span class="badge bg-primary">上传</span>
+                                {% elif log.action == 'download' %}
+                                <span class="badge bg-success">下载</span>
+                                {% elif log.action == 'view' %}
+                                <span class="badge bg-info">查看</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ log.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.user.display_name if log.user else '-' }}</td>
+                            <td>{{ log.timestamp.strftime('%m-%d %H:%M') }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">暂无记录</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

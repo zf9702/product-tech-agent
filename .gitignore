@@ -1,0 +1,22 @@
+# 虚拟环境
+.venv/
+__pycache__/
+*.pyc
+
+# 敏感文件（密钥、配置）
+.secret_key
+.doc_key
+ai_config.json
+
+# 数据文件（不上传）
+data/
+database/
+
+# IDE
+.vscode/
+.idea/
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+nul
